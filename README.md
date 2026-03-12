@@ -1,36 +1,143 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CynoIA — High-Performance Immersive Frontend
 
-## Getting Started
+> Landing page futuriste pour la startup SaaS **CynoIA**, exploitant des géométries paramétriques 3D et une infrastructure Serverless sur Oracle Cloud.  
+> Réalisé dans le cadre d'un projet de Master 2 en ingénierie logicielle.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack Technique
+
+| Couche | Technologie | Version |
+|---|---|---|
+| Framework | **Next.js** (App Router, SSR/SSG) | 15.x |
+| Rendu 3D | **React Three Fiber** + Three.js | 8.x / 0.169 |
+| Post-processing | **@react-three/postprocessing** (Bloom, EffectComposer) | 2.x |
+| Animation | **GSAP** + ScrollTrigger | 3.x |
+| Styles | **Tailwind CSS** v4 | 4.x |
+| Thème | **next-themes** (Dark / Light adaptatif) | 0.4 |
+| Typo | Syne (display) + Space Grotesk (body) — Google Fonts | — |
+| Langage | TypeScript strict | 5.x |
+| Runtime | Node.js 20 LTS | — |
+
+---
+
+## Architecture
+
+### Scène 3D — Bruit de Perlin & Géométrie Paramétrique
+
+Le background immersif est rendu via un **WebGL Canvas** (`react-three-fiber`) positionné en `fixed` avec `z-index: -10`, invisible à la couche DOM mais visible derrière tout le contenu.
+
+**Pipeline géométrique :**
+```
+THREE.Shape (contour africain, ~40 sommets lat/lon normalisés)
+  → ExtrudeGeometry (depth: 0.28, bevel: 3 segments)
+  → EdgesGeometry (threshold 12°)
+  → LineSegments + ShaderMaterial custom
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Vertex Shader — déformation cinétique :**  
+Chaque sommet est déplacé selon la formule :
+```glsl
+pos += normal * (cnoise(pos * 0.75 + uTime * 0.18) + cnoise(pos * 1.60 + uTime * 0.10) * 0.35) * amplitude;
+```
+Le **Bruit de Perlin classique 3D** (`cnoise`) génère un champ de déplacement continu et différentiable, garantissant une déformation organique sans discontinuités visuelles. L'`amplitude` est modulée par `uScrollProgress` pour intensifier l'effet au scroll.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Fragment Shader — gradient dynamique :**  
+Gradient violet (sud) → electric blue (équateur) → cyan (nord), calqué sur la latitude du continent africain. Pulsation par `sin(uTime)` pour un effet lumineux vivant.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Post-processing :**  
+`Bloom` HDR (`intensity: 1.8`, `luminanceThreshold: 0.05`) via `EffectComposer` pour le halo lumineux sur les arêtes du wireframe.
 
-## Learn More
+**Optimisation GPU :**  
+- `powerPreference: 'high-performance'` sur le contexte WebGL → force le GPU dédié sur les machines hybrides
+- `dpr={[1, 2]}` → Device Pixel Ratio adaptatif (1x mobile, 2x Retina)
+- `frameloop="always"` → boucle RAF continue pour 60 FPS stables
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Animations UI — GSAP ScrollTrigger
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Toutes les animations de sections (titres, cartes, compteurs) sont pilotées par **GSAP ScrollTrigger** avec `scrub` pour un défilement fluide. Chaque composant isole son contexte GSAP dans `gsap.context()` pour éviter les fuites mémoire lors des remontages React (changement de langue, HMR).
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Infrastructure Cloud — Oracle Cloud Infrastructure (OCI)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Le déploiement cible **Oracle Cloud Infrastructure** en mode Serverless :
+
+| Composant | Service OCI |
+|---|---|
+| Hébergement front | **OCI Compute** (VM.Standard.E4.Flex) ou **Container Instances** |
+| CDN / Edge | **OCI Web Application Firewall** + **FastConnect** |
+| Stockage assets | **Object Storage** (bucket public, tier Standard) |
+| CI/CD | **OCI DevOps** → Build Pipeline → Artifact → Deploy Pipeline |
+| SSL/TLS | **Certificate Manager** OCI (Let's Encrypt automatique) |
+
+Le build Next.js produit un bundle statique optimisé (`next export` ou `standalone`) déployé sur un container Docker minimal (node:20-alpine).
+
+---
+
+## SEO & Accessibilité
+
+- **Title :** `CynoIA : Expérience Immersive WebGL & Architecture Cloud`
+- **Description :** `Landing page futuriste pour la startup SaaS CynoIA, exploitant des géométries paramétriques 3D et une infrastructure Serverless sur Oracle Cloud.`
+- **OpenGraph** + **Twitter Card** configurés dans `app/layout.tsx`
+- **WCAG 2.1 AA/AAA :** `#1A1A1A` sur `#FFFFFF` → ratio 21:1 ✅ | `#374151` sur `#FFFFFF` → ratio 11:1 ✅
+- `aria-hidden="true"` sur le canvas 3D (élément décoratif)
+- `alt` descriptif sur tous les éléments `<Image>`
+
+---
+
+## Lancer le projet
+
+```bash
+# Installation
+npm install
+
+# Développement (hot reload)
+npm run dev
+
+# Build de production
+npm run build
+
+# Serveur de production
+npm start
+```
+
+Ouvrir [http://localhost:3000](http://localhost:3000).
+
+---
+
+## Structure du projet
+
+```
+cynoai-landing/
+├── app/
+│   ├── layout.tsx          # Métadonnées SEO, providers thème/langue
+│   ├── page.tsx            # Composition des sections
+│   └── globals.css         # Variables CSS, animations, WCAG light mode
+├── components/
+│   ├── HeroScene.tsx       # Canvas WebGL — continent africain + Perlin noise
+│   ├── HeroSceneLoader.tsx # Lazy-loading SSR-safe de HeroScene
+│   ├── Navbar.tsx          # Navigation sticky avec toggle thème/langue
+│   ├── HeroSection.tsx     # Section hero avec GSAP animations
+│   ├── StatsSection.tsx    # Compteurs animés
+│   ├── FeaturesSection.tsx # Grille de fonctionnalités
+│   ├── ValueSection.tsx    # Cartes valeur proposition
+│   ├── CTASection.tsx      # Call-to-action final
+│   └── Footer.tsx          # Footer avec liens et copyright
+├── context/
+│   └── LanguageContext.tsx # i18n FR/EN (React Context)
+└── public/
+    └── logo.png
+```
+
+---
+
+## Auteur
+
+Développé par **The IT Architect** — Portfolio Master 2 en Ingénierie Logicielle Full-Stack.
+
+---
+
+*© 2026 CynoIA. Tous droits réservés.*
