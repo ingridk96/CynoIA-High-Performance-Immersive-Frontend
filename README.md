@@ -136,7 +136,7 @@ cynoai-landing/
 
 ## Auteur
 
-Développé par **The IT Architect** — Portfolio Master 2 en Ingénierie Logicielle Full-Stack.
+Développé par **The IT Architect** — Ingrid
 
 ---
 
